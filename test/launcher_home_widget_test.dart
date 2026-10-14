@@ -491,8 +491,10 @@ void main() {
     await h.dispose(tester);
   });
 
+  // Goldens depend on the machine's rendering, so CI skips them with
+  // `--exclude-tags golden`; regenerate locally with --update-goldens.
   group('goldens', () {
-    testWidgets('empty home', (tester) async {
+    testWidgets('empty home', tags: 'golden', (tester) async {
       final h = await _Harness.create(tester);
       await expectLater(
         find.byType(MaterialApp),
@@ -501,7 +503,7 @@ void main() {
       await h.dispose(tester);
     });
 
-    testWidgets('populated home', (tester) async {
+    testWidgets('populated home', tags: 'golden', (tester) async {
       final h = await _Harness.create(tester);
       await h.addProfile(tester, 'My Wallet', description: 'Everyday wallet');
       await h.addProfile(tester, 'Pillar node', iconLabel: 'Server');
