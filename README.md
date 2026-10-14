@@ -1,0 +1,60 @@
+# Syrius Launcher
+
+A small macOS-first Flutter desktop app. You create named wallet profiles,
+pick one, and the launcher starts the **official, unmodified Syrius wallet**
+with that profile's own private data folder.
+
+The launcher is not a wallet. It never asks for, stores or logs seeds,
+private keys or passwords. Wallet setup, import and unlock all happen inside
+Syrius.
+
+> ⚠️ Profile isolation has **not yet been verified** on a real Mac. See
+> [docs/MACOS_PROFILE_ISOLATION.md](docs/MACOS_PROFILE_ISOLATION.md). Use
+> disposable wallets only until it has been verified.
+
+## How it works
+
+- A new install starts with **zero profiles**.
+- **Add wallet profile** creates a private folder
+  `~/SyriusProfiles/<uuid>/` with mode `0700`.
+- **Launch Syrius** starts `s y r i u s.app/Contents/MacOS/s y r i u s`
+  directly. `HOME` is set to that profile's folder, so Syrius uses
+  `<profile>/Library/znn/` instead of `~/Library/znn/`.
+- Your ordinary `~/Library/znn` is never touched.
+- Only one Syrius instance can run at a time. Use **Exit wallet** in the
+  Syrius tray menu before you switch.
+- **Remove profile** moves the folder to the Trash. It never deletes the
+  folder permanently.
+- Launcher metadata (no secrets) is stored in
+  `~/Library/Application Support/com.syriuslauncher.app/profiles.json`.
+
+## Development
+
+```bash
+flutter pub get
+flutter analyze
+flutter test                  # unit, widget and golden tests
+flutter test --update-goldens # after an intentional UI change
+flutter run -d macos
+flutter build macos --release
+```
+
+### Layout
+
+```text
+lib/
+  core/theme        palette + theme (spec section 4.3)
+  core/models       WalletProfile, LauncherSettings, launch states/results
+  core/persistence  JSON repository (atomic writes, 0600)
+  core/services     ProfileService, SyriusLocator, LaunchCoordinator, ProcessMonitor
+  core/platform     SyriusPlatformLauncher + macOS adapter (Windows/Linux stubs)
+  features/home     home view, profile tile, dialogs, controller, page
+macos/Runner/MainFlutterWindow.swift   native bridge (bundle lookup, Trash, pid list, open panel)
+```
+
+### macOS notes
+
+- App Sandbox is **disabled** in both entitlement files. A sandboxed parent
+  process would pass its sandbox on to Syrius.
+- Distribution should be a signed and notarized direct download. The Mac App
+  Store is not suitable.
