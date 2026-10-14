@@ -1,7 +1,8 @@
 name: Build macOS DMG
 
 # Builds, tests and packages Syrius Launcher as a .dmg.
-# - Every run uploads the dmg as a workflow artifact.
+# - Every push to main (and every manual run) uploads the dmg as a workflow
+#   artifact.
 # - Pushing a tag like v0.2.0 also publishes a GitHub release with the dmg.
 #
 # Signing and notarization are optional. Add these repository secrets to
@@ -16,6 +17,7 @@ name: Build macOS DMG
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
