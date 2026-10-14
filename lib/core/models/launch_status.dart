@@ -44,6 +44,12 @@ final class LaunchNeedsFirstRunChoice extends LaunchResult {
   const LaunchNeedsFirstRunChoice();
 }
 
+/// The user has not yet seen the warning that Syrius's WalletConnect state
+/// is shared between all profiles.
+final class LaunchNeedsWalletConnectNotice extends LaunchResult {
+  const LaunchNeedsWalletConnectNotice();
+}
+
 final class LaunchFailed extends LaunchResult {
   const LaunchFailed(this.message);
   final String message;

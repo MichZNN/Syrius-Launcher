@@ -87,6 +87,95 @@ HOME=~/SyriusProfiles/test-a "/Applications/s y r i u s.app/Contents/MacOS/s y r
 
 ## Results
 
-| Date | Tester | Syrius version | Result | Shared state found |
-| --- | --- | --- | --- | --- |
-| _pending_ | | | | |
+| Date | Syrius version | Result | Shared state found |
+| --- | --- | --- | --- |
+| 2026-10-14 | v0.2.4-alphanet | **Partial: NOT isolated** | WalletConnect state in `NSUserDefaults` |
+
+### 2026-10-14: first real run (two profiles created and launched through the launcher)
+
+**Isolated (works as intended):**
+
+- Each profile has its own `Library/znn/wallet/` and `Library/znn/syrius/`
+  (Hive boxes, `key_store_box`, logs).
+- The two profiles have different wallet addresses (visible in the
+  per-address Hive box names).
+- The ordinary `~/Library/znn` was last modified at 11:06. The launcher was
+  first started at 11:42, so the launcher did not touch it.
+
+**Shared between ALL profiles and the ordinary installation:**
+
+- `~/Library/Preferences/network.zenon.syrius.plist` (`NSUserDefaults`,
+  written through Flutter `shared_preferences`) contains the complete
+  **WalletConnect v2 state**:
+  - `flutter.wc@2:core:*//pairings`, `sessions`, `proposals`, `keychain`
+  - `jsonRpcHistory`, `pendingRequests`, `authKeys`
+  - and the related keys.
+
+  Risk: a dApp pairing or session approved in profile A remains known when
+  profile B is running. Requests from that dApp could then reach the wrong
+  wallet. The WalletConnect symmetric keys are also shared.
+- `NSOSPLastRootDirectory` (last folder of an open panel) is shared. This is
+  harmless.
+
+**Tried and rejected:** setting `CFFIXED_USER_HOME` does **not** redirect
+`NSUserDefaults` on this macOS version. `cfprefsd` ignores it. A probe with
+`defaults write` landed in the real `~/Library/Preferences`.
+
+**Conclusion:** wallet files and Hive data are isolated, but WalletConnect
+is not. Until a tested fix exists, do not use WalletConnect in launcher
+profiles. Production use stays blocked (spec section 9).
+
+### Mitigation in the launcher (since 2026-10-14)
+
+- A one-time warning before the first launch says that WalletConnect data is
+  shared by all profiles.
+- **Syrius Launcher → WalletConnect...** in the menu bar offers two options:
+  - **Clear WalletConnect data now**: needs confirmation and is refused while
+    Syrius runs.
+  - **Clear WalletConnect data before each launch**: off by default.
+- Clearing removes only keys that start with `flutter.wc@2:` from the
+  `network.zenon.syrius` preferences domain. It goes through `CFPreferences`
+  (cfprefsd) and never edits the plist file directly. Other Syrius
+  preferences stay untouched. This was verified on a probe domain.
+- Clearing also affects the ordinary Syrius installation, because the
+  domain is the same. The confirmation dialog says so.
+
+### Bridge test plan: is shared WalletConnect state a real problem?
+
+Syrius can hold several WalletConnect connections at the same time. Because
+the store is shared, the question is what Syrius does with a session that
+was approved by another profile. Use disposable wallets A and B, and keep
+"clear before each launch" **off**.
+
+1. Launch profile A and connect the Bridge to Syrius through WalletConnect.
+   Note A's address as the Bridge shows it.
+2. Exit Syrius with **Exit wallet**. Launch profile B **without** touching
+   the Bridge.
+3. In B, open Syrius's WalletConnect screen. Is A's Bridge session listed?
+4. In the Bridge, refresh. Does it still show as connected? Does it now show
+   **B's** address, or still A's?
+5. Start an action in the Bridge that needs a signature. Does the request
+   appear in B? Which address does the request show? **Reject it.**
+6. Also connect the Bridge in B. Now launch A again: are there two sessions?
+   Which address does each session report?
+7. Repeat with "clear before each launch" **on**. Every launch must start
+   with zero sessions, and the Bridge must ask to pair again.
+
+Record the results below. If any step shows a session approved in A acting
+on B (or the other way round), "clear before each launch" should become the
+default, or be enforced.
+
+| Step | Observation |
+| --- | --- |
+| 3 | _pending_ |
+| 4 | _pending_ |
+| 5 | _pending_ |
+| 6 | _pending_ |
+| 7 | _pending_ |
+
+### Still to check
+
+- Embedded node: not used in the 2026-10-14 test. Check where it stores its
+  data before anyone enables it in a profile.
+- Keychain items (Keychain Access → search for "syrius" / "zenon").
+- A full `fs_usage` trace for writes outside the profile folder.

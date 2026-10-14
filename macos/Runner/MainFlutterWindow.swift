@@ -79,6 +79,14 @@ final class LauncherNativeBridge {
         ))
       }
 
+    case "walletConnectSummary":
+      result(SyriusPreferences.walletConnectSummary())
+
+    case "clearWalletConnectData":
+      // The Dart side only calls this while no Syrius process is running;
+      // a running Syrius would keep its own copy and write it back.
+      result(SyriusPreferences.clearWalletConnect())
+
     case "pickApplication":
       pickApplication(result: result)
 

@@ -1,0 +1,115 @@
+name: Build macOS DMG
+
+# Builds, tests and packages Syrius Launcher as a .dmg.
+# - Every run uploads the dmg as a workflow artifact.
+# - Pushing a tag like v0.2.0 also publishes a GitHub release with the dmg.
+#
+# Signing and notarization are optional. Add these repository secrets to
+# enable them (Settings -> Secrets and variables -> Actions):
+#   MACOS_CERTIFICATE_P12      base64 of the "Developer ID Application" .p12
+#   MACOS_CERTIFICATE_PASSWORD password of that .p12
+#   MACOS_SIGN_IDENTITY        e.g. "Developer ID Application: Name (TEAMID)"
+#   NOTARY_APPLE_ID            Apple ID e-mail
+#   NOTARY_TEAM_ID             10-character team id
+#   NOTARY_PASSWORD            app-specific password for that Apple ID
+# Without them the dmg contains an ad-hoc signed app (Gatekeeper will warn).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      HAS_SIGNING: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build release app
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            # v1.2.3 -> 1.2.3; the run number keeps build numbers increasing.
+            flutter build macos --release \
+              --build-name="${GITHUB_REF_NAME#v}" \
+              --build-number="$GITHUB_RUN_NUMBER"
+          else
+            flutter build macos --release
+          fi
+
+      - name: Import signing certificate
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" \
+            $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Create DMG
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: scripts/build_dmg.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SyriusLauncher-dmg
+          path: |
+            build/dmg/*.dmg
+            build/dmg/*.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/dmg/*.dmg
+            build/dmg/*.sha256
+          generate_release_notes: true
+          body: |
+            ⚠️ Profile isolation is not fully verified yet, and WalletConnect
+            data is shared between profiles. See
+            docs/MACOS_PROFILE_ISOLATION.md before using real funds.
+
+      - name: Remove signing keychain
+        if: always() && env.HAS_SIGNING == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true

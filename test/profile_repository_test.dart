@@ -53,6 +53,23 @@ void main() {
     expect(loaded.syriusAppPath, '/Applications/s y r i u s.app');
   });
 
+  test('WalletConnect options round-trip and default to off', () async {
+    await repository.save(const LauncherSettings.empty());
+    var loaded = await repository.load();
+    expect(loaded.clearWalletConnectOnLaunch, isFalse);
+    expect(loaded.walletConnectNoticeAcknowledged, isFalse);
+
+    await repository.save(
+      loaded.copyWith(
+        clearWalletConnectOnLaunch: true,
+        walletConnectNoticeAcknowledged: true,
+      ),
+    );
+    loaded = await repository.load();
+    expect(loaded.clearWalletConnectOnLaunch, isTrue);
+    expect(loaded.walletConnectNoticeAcknowledged, isTrue);
+  });
+
   test(
     'writes atomically with a schema version and private permissions',
     () async {

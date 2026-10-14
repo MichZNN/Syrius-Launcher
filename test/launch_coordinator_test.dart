@@ -4,10 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:syrius_launcher/core/models/launch_status.dart';
 import 'package:syrius_launcher/core/models/wallet_profile.dart';
+import 'package:syrius_launcher/core/models/walletconnect_summary.dart';
 import 'package:syrius_launcher/core/services/launch_coordinator.dart';
 import 'package:syrius_launcher/core/services/profile_service.dart';
 
 import 'support/fakes.dart';
+
+const _connected = WalletConnectSummary(
+  sessions: 1,
+  pairings: 1,
+  storageKeys: 28,
+);
 
 void main() {
   late Directory temp;
@@ -38,6 +45,7 @@ void main() {
       description: '',
       icon: ProfileIcon.wallet,
     );
+    await profiles.acknowledgeWalletConnectNotice();
   });
 
   tearDown(() => temp.delete(recursive: true));
@@ -114,6 +122,68 @@ void main() {
     Directory(profiles.homeFor(profile.id)).deleteSync();
     expect(await coordinator.launch(profile), isA<LaunchFailed>());
     expect(platform.launches, isEmpty);
+  });
+
+  group('WalletConnect', () {
+    test('the shared-data notice is required once', () async {
+      final fresh = ProfileService(
+        repository: InMemoryProfileRepository(
+          profiles.settings.copyWith(walletConnectNoticeAcknowledged: false),
+        ),
+        profilesRootPath: profiles.profilesRoot,
+        trash: FakeTrash(temp),
+      );
+      await fresh.load();
+      final freshCoordinator = LaunchCoordinator(
+        platform: platform,
+        profiles: fresh,
+        earlyExitWindow: Duration.zero,
+      );
+
+      expect(
+        await freshCoordinator.launch(profile),
+        isA<LaunchNeedsWalletConnectNotice>(),
+      );
+      expect(platform.launches, isEmpty);
+
+      await fresh.acknowledgeWalletConnectNotice();
+      expect(await freshCoordinator.launch(profile), isA<LaunchStarted>());
+    });
+
+    test('data is kept by default', () async {
+      platform.walletConnect = _connected;
+      await coordinator.launch(profile);
+      expect(platform.clearCalls, 0);
+      expect(platform.walletConnect.sessions, 1);
+    });
+
+    test('clear-before-launch clears before starting Syrius', () async {
+      platform.walletConnect = _connected;
+      await profiles.setClearWalletConnectOnLaunch(true);
+
+      expect(await coordinator.launch(profile), isA<LaunchStarted>());
+      expect(platform.clearCalls, 1);
+      expect(platform.walletConnect.hasConnections, isFalse);
+    });
+
+    test('a failed clear blocks the launch', () async {
+      await profiles.setClearWalletConnectOnLaunch(true);
+      platform.clearError = StateError('cfprefsd unavailable');
+
+      expect(await coordinator.launch(profile), isA<LaunchFailed>());
+      expect(platform.launches, isEmpty);
+    });
+
+    test('nothing is cleared while Syrius is running', () async {
+      await profiles.setClearWalletConnectOnLaunch(true);
+      platform.running = {1};
+
+      expect(
+        await coordinator.launch(profile),
+        isA<LaunchBlockedAlreadyRunning>(),
+      );
+      expect(platform.clearCalls, 0);
+    });
   });
 
   test('a saved pid is only trusted while it is still running', () async {

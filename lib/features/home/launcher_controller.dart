@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/models/launch_status.dart';
+import '../../core/models/walletconnect_summary.dart';
 import '../../core/models/wallet_profile.dart';
 import '../../core/platform/syrius_platform_launcher.dart';
 import '../../core/services/launch_coordinator.dart';
@@ -157,6 +158,34 @@ class LauncherController extends ChangeNotifier {
     _phase = _idlePhase;
     notifyListeners();
     return result;
+  }
+
+  bool get clearWalletConnectOnLaunch =>
+      _profiles.settings.clearWalletConnectOnLaunch;
+
+  Future<void> setClearWalletConnectOnLaunch(bool value) async {
+    await _profiles.setClearWalletConnectOnLaunch(value);
+    notifyListeners();
+  }
+
+  Future<void> acknowledgeWalletConnectNotice() async {
+    await _profiles.acknowledgeWalletConnectNotice();
+    notifyListeners();
+  }
+
+  Future<WalletConnectSummary> walletConnectSummary() =>
+      _platform.walletConnectSummary();
+
+  /// Clears the shared WalletConnect state. Refused while any Syrius runs,
+  /// because a running Syrius would write its in-memory copy back.
+  Future<int> clearWalletConnectNow() async {
+    if (isLaunching || await _platform.isAnySyriusRunning()) {
+      throw const ProfileOperationException(
+        'Syrius is running. Use "Exit wallet" inside Syrius before clearing '
+        'WalletConnect data.',
+      );
+    }
+    return _platform.clearWalletConnectData();
   }
 
   /// Validates and remembers a user-selected Syrius app.

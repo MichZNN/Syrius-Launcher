@@ -6,6 +6,7 @@ import '../../core/theme/launcher_palette.dart';
 import 'launcher_controller.dart';
 import 'launcher_home_view.dart';
 import 'profile_dialogs.dart';
+import 'walletconnect_dialogs.dart';
 import 'wallet_profile_tile.dart';
 
 /// Connects [LauncherController] to [LauncherHomeView] and owns all dialogs.
@@ -132,6 +133,22 @@ class _LauncherPageState extends State<LauncherPage> {
         await showAlreadyRunningDialog(context);
       case LaunchSyriusNotFound():
         await _handleSyriusNotFound();
+      case LaunchNeedsWalletConnectNotice():
+        final choice = await showWalletConnectNoticeDialog(context);
+        if (!mounted) return;
+        switch (choice) {
+          case WalletConnectNoticeChoice.proceed:
+            if (await _run(_controller.acknowledgeWalletConnectNotice)) {
+              await _launch(firstRunConfirmed: firstRunConfirmed);
+            }
+          case WalletConnectNoticeChoice.options:
+            if (await _run(_controller.acknowledgeWalletConnectNotice) &&
+                mounted) {
+              await _openWalletConnect();
+            }
+          case null:
+            break;
+        }
       case LaunchNeedsFirstRunChoice():
         final profile = _controller.selectedProfile;
         if (profile == null) return;
@@ -189,6 +206,17 @@ class _LauncherPageState extends State<LauncherPage> {
           '${installation.version != null ? ' (${installation.version})' : ''}.',
     );
   }
+
+  Future<void> _openWalletConnect() =>
+      showWalletConnectDialog(context, controller: _controller);
+
+  /// Like [_guard] for actions without a result; returns whether it worked.
+  Future<bool> _run(Future<void> Function() action) async =>
+      await _guard(() async {
+        await action();
+        return true;
+      }) ??
+      false;
 
   /// Runs [action] and shows failures in a dialog instead of throwing.
   Future<T?> _guard<T>(Future<T> Function() action) async {
@@ -249,6 +277,10 @@ class _LauncherPageState extends State<LauncherPage> {
                 PlatformMenuItem(
                   label: 'Locate Syrius...',
                   onSelected: _locate,
+                ),
+                PlatformMenuItem(
+                  label: 'WalletConnect...',
+                  onSelected: _openWalletConnect,
                 ),
               ],
             ),

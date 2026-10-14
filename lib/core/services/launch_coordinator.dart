@@ -45,6 +45,10 @@ class LaunchCoordinator {
       return const LaunchBlockedAlreadyRunning();
     }
 
+    if (!_profiles.settings.walletConnectNoticeAcknowledged) {
+      return const LaunchNeedsWalletConnectNotice();
+    }
+
     final String home;
     try {
       home = _profiles.homeFor(profile.id);
@@ -63,6 +67,17 @@ class LaunchCoordinator {
         !await hasWalletData(profile) &&
         await Directory(_platform.defaultSdkRoot).exists()) {
       return const LaunchNeedsFirstRunChoice();
+    }
+
+    if (_profiles.settings.clearWalletConnectOnLaunch) {
+      try {
+        await _platform.clearWalletConnectData();
+      } on Object catch (error) {
+        return LaunchFailed(
+          'WalletConnect data could not be cleared, so Syrius was not '
+          'started. ($error)',
+        );
+      }
     }
 
     final LaunchHandle handle;

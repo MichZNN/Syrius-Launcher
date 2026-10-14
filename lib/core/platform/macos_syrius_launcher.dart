@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../models/launch_status.dart';
+import '../models/walletconnect_summary.dart';
 import '../models/wallet_profile.dart';
 import '../services/syrius_locator.dart';
 import 'macos_native_bridge.dart';
@@ -112,6 +113,13 @@ class MacosSyriusLauncher implements SyriusPlatformLauncher {
   @override
   Future<bool> isAnySyriusRunning() async =>
       (await runningSyriusPids()).isNotEmpty;
+
+  @override
+  Future<WalletConnectSummary> walletConnectSummary() =>
+      _bridge.walletConnectSummary();
+
+  @override
+  Future<int> clearWalletConnectData() => _bridge.clearWalletConnectData();
 
   @override
   Future<void> openOfficialReleases() => _bridge.openUrl(officialReleasesUrl);

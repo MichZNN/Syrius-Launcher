@@ -31,6 +31,8 @@ class LauncherSettings {
     required this.selectedProfileId,
     required this.syriusAppPath,
     this.lastLaunch,
+    this.clearWalletConnectOnLaunch = false,
+    this.walletConnectNoticeAcknowledged = false,
   });
 
   /// First-launch state: zero profiles, nothing selected.
@@ -38,7 +40,9 @@ class LauncherSettings {
     : profiles = const [],
       selectedProfileId = null,
       syriusAppPath = null,
-      lastLaunch = null;
+      lastLaunch = null,
+      clearWalletConnectOnLaunch = false,
+      walletConnectNoticeAcknowledged = false;
 
   static const schemaVersion = 1;
 
@@ -46,6 +50,13 @@ class LauncherSettings {
   final String? selectedProfileId;
   final String? syriusAppPath;
   final LastLaunchRecord? lastLaunch;
+
+  /// Clear Syrius's WalletConnect state (which macOS shares between all
+  /// profiles) before every launch. Off by default.
+  final bool clearWalletConnectOnLaunch;
+
+  /// The user has seen the "WalletConnect data is shared" warning.
+  final bool walletConnectNoticeAcknowledged;
 
   WalletProfile? profileById(String? id) {
     if (id == null) return null;
@@ -60,6 +71,8 @@ class LauncherSettings {
     ValueGetter<String?>? selectedProfileId,
     ValueGetter<String?>? syriusAppPath,
     ValueGetter<LastLaunchRecord?>? lastLaunch,
+    bool? clearWalletConnectOnLaunch,
+    bool? walletConnectNoticeAcknowledged,
   }) {
     return LauncherSettings(
       profiles: profiles ?? this.profiles,
@@ -70,6 +83,11 @@ class LauncherSettings {
           ? syriusAppPath()
           : this.syriusAppPath,
       lastLaunch: lastLaunch != null ? lastLaunch() : this.lastLaunch,
+      clearWalletConnectOnLaunch:
+          clearWalletConnectOnLaunch ?? this.clearWalletConnectOnLaunch,
+      walletConnectNoticeAcknowledged:
+          walletConnectNoticeAcknowledged ??
+          this.walletConnectNoticeAcknowledged,
     );
   }
 
@@ -88,6 +106,8 @@ class LauncherSettings {
           : null,
       syriusAppPath: syriusAppPath,
       lastLaunch: seen.contains(lastLaunch?.profileId) ? lastLaunch : null,
+      clearWalletConnectOnLaunch: clearWalletConnectOnLaunch,
+      walletConnectNoticeAcknowledged: walletConnectNoticeAcknowledged,
     );
   }
 
@@ -97,6 +117,8 @@ class LauncherSettings {
     'syriusAppPath': syriusAppPath,
     'profiles': [for (final profile in profiles) profile.toJson()],
     if (lastLaunch != null) 'lastLaunch': lastLaunch!.toJson(),
+    'clearWalletConnectOnLaunch': clearWalletConnectOnLaunch,
+    'walletConnectNoticeAcknowledged': walletConnectNoticeAcknowledged,
   };
 
   /// Throws [FormatException] when the document is not a valid v1 document.
@@ -126,6 +148,9 @@ class LauncherSettings {
       selectedProfileId: selected is String ? selected : null,
       syriusAppPath: appPath is String && appPath.isNotEmpty ? appPath : null,
       lastLaunch: LastLaunchRecord.tryParse(json['lastLaunch']),
+      clearWalletConnectOnLaunch: json['clearWalletConnectOnLaunch'] == true,
+      walletConnectNoticeAcknowledged:
+          json['walletConnectNoticeAcknowledged'] == true,
     ).normalized();
   }
 }

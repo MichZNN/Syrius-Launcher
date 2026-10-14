@@ -79,6 +79,7 @@ class _ProfileFormDialogState extends State<_ProfileFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(_isEdit ? 'Edit profile' : 'Add wallet profile'),
       content: SizedBox(
         width: 360,
@@ -239,6 +240,7 @@ class _RemoveProfileDialogState extends State<_RemoveProfileDialog> {
   Widget build(BuildContext context) {
     final canConfirm = !widget.hasWalletData || _acknowledged;
     return AlertDialog(
+      scrollable: true,
       title: const Text('Remove profile'),
       content: SizedBox(
         width: 360,
@@ -329,6 +331,7 @@ Future<void> showMessageDialog(
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
+      scrollable: true,
       title: Text(title),
       content: SizedBox(width: 360, child: SelectableText(message)),
       actions: [
@@ -362,6 +365,7 @@ Future<SyriusNotFoundChoice?> showSyriusNotFoundDialog(BuildContext context) {
   return showDialog<SyriusNotFoundChoice>(
     context: context,
     builder: (context) => AlertDialog(
+      scrollable: true,
       title: const Text('Syrius not found'),
       content: const SizedBox(
         width: 360,
@@ -401,6 +405,7 @@ Future<FirstRunChoice?> showFirstRunChoiceDialog(
   return showDialog<FirstRunChoice>(
     context: context,
     builder: (context) => AlertDialog(
+      scrollable: true,
       title: const Text('New profile'),
       content: SizedBox(
         width: 380,

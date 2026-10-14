@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../models/launch_status.dart';
+import '../models/walletconnect_summary.dart';
 import '../models/wallet_profile.dart';
 import '../services/syrius_locator.dart';
 import 'linux_syrius_launcher.dart';
@@ -41,6 +42,16 @@ abstract interface class SyriusPlatformLauncher {
   Future<Set<int>> runningSyriusPids();
 
   Future<bool> isAnySyriusRunning();
+
+  /// Sessions and pairings in Syrius's shared preferences store. On macOS
+  /// this store is shared by every profile and by the ordinary Syrius
+  /// installation; HOME does not redirect it.
+  Future<WalletConnectSummary> walletConnectSummary();
+
+  /// Removes only WalletConnect keys from that store. Must only be called
+  /// while no Syrius instance is running. Returns the number of keys
+  /// removed.
+  Future<int> clearWalletConnectData();
 
   Future<void> openOfficialReleases();
 }

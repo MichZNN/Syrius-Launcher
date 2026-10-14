@@ -8,11 +8,13 @@ import 'package:path/path.dart' as p;
 import 'package:syrius_launcher/app.dart';
 import 'package:syrius_launcher/core/models/launcher_settings.dart';
 import 'package:syrius_launcher/core/models/wallet_profile.dart';
+import 'package:syrius_launcher/core/models/walletconnect_summary.dart';
 import 'package:syrius_launcher/core/services/launch_coordinator.dart';
 import 'package:syrius_launcher/core/services/process_monitor.dart';
 import 'package:syrius_launcher/core/services/profile_service.dart';
 import 'package:syrius_launcher/core/theme/launcher_palette.dart';
 import 'package:syrius_launcher/features/home/launcher_controller.dart';
+import 'package:syrius_launcher/features/home/walletconnect_dialogs.dart';
 
 import 'support/fakes.dart';
 
@@ -34,7 +36,12 @@ class _Harness {
       () => Directory.systemTemp.createTemp('launcher_widget_'),
     ))!;
     final trashDir = Directory(p.join(temp.path, 'trash'))..createSync();
-    final repository = InMemoryProfileRepository(stored);
+    final repository = InMemoryProfileRepository(
+      stored ??
+          const LauncherSettings.empty().copyWith(
+            walletConnectNoticeAcknowledged: true,
+          ),
+    );
     final platform = FakePlatformLauncher(home: p.join(temp.path, 'home'));
     final profiles = ProfileService(
       repository: repository,
@@ -379,6 +386,108 @@ void main() {
     expect(h.controller.runningProfileId, h.controller.selectedProfileId);
     expect(find.text('Launch Syrius'), findsOneWidget);
 
+    await h.dispose(tester);
+  });
+
+  testWidgets('first launch shows the WalletConnect notice once', (
+    tester,
+  ) async {
+    final h = await _Harness.create(
+      tester,
+      stored: const LauncherSettings.empty(),
+    );
+    await h.addProfile(tester, 'Wallet');
+
+    await tester.tap(_launchButton());
+    await h.settle(tester);
+    expect(find.text('WalletConnect is shared'), findsOneWidget);
+    expect(h.platform.launches, isEmpty);
+
+    await tester.tap(find.text('I understand'));
+    await h.settle(tester);
+    expect(h.platform.launches, hasLength(1));
+    expect(h.repository.stored!.walletConnectNoticeAcknowledged, isTrue);
+
+    await h.dispose(tester);
+  });
+
+  testWidgets('WalletConnect dialog clears data and saves the option', (
+    tester,
+  ) async {
+    final h = await _Harness.create(tester);
+    h.platform.walletConnect = const WalletConnectSummary(
+      sessions: 2,
+      pairings: 1,
+      storageKeys: 28,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                showWalletConnectDialog(context, controller: h.controller),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await h.settle(tester);
+    expect(
+      find.text('Stored connections: 2 sessions, 1 pairing.'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.byType(Switch));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch));
+    await h.settle(tester);
+    expect(h.repository.stored!.clearWalletConnectOnLaunch, isTrue);
+
+    await tester.tap(find.text('Clear WalletConnect data now...'));
+    await h.settle(tester);
+    await tester.tap(find.text('Clear'));
+    await h.settle(tester);
+    await tester.ensureVisible(find.text('WalletConnect data cleared.'));
+    expect(find.text('WalletConnect data cleared.'), findsOneWidget);
+    expect(find.text('No dApps are connected.'), findsOneWidget);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await h.dispose(tester);
+  });
+
+  testWidgets('WalletConnect cannot be cleared while Syrius runs', (
+    tester,
+  ) async {
+    final h = await _Harness.create(tester);
+    h.platform.running = {5};
+    await h.controller.initialize();
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                showWalletConnectDialog(context, controller: h.controller),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await h.settle(tester);
+
+    final clear = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Clear WalletConnect data now...'),
+    );
+    expect(clear.onPressed, isNull);
+    expect(h.platform.clearCalls, 0);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
     await h.dispose(tester);
   });
 

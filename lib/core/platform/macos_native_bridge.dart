@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../models/walletconnect_summary.dart';
 import '../services/profile_service.dart';
 import '../services/syrius_locator.dart';
 
@@ -47,6 +48,21 @@ class MacosNativeBridge implements BundleInspector, ProfileTrash {
       throw TrashException(error.message ?? 'Moving to Trash failed.');
     }
   }
+
+  Future<WalletConnectSummary> walletConnectSummary() async {
+    final map = await _channel.invokeMapMethod<String, int>(
+      'walletConnectSummary',
+    );
+    if (map == null) return WalletConnectSummary.empty;
+    return WalletConnectSummary(
+      sessions: map['sessions'] ?? 0,
+      pairings: map['pairings'] ?? 0,
+      storageKeys: map['keys'] ?? 0,
+    );
+  }
+
+  Future<int> clearWalletConnectData() async =>
+      await _channel.invokeMethod<int>('clearWalletConnectData') ?? 0;
 
   Future<String?> pickApplication() =>
       _channel.invokeMethod<String>('pickApplication');

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../models/launch_status.dart';
+import '../models/walletconnect_summary.dart';
 import '../models/wallet_profile.dart';
 import '../services/syrius_locator.dart';
 import 'syrius_platform_launcher.dart';
@@ -49,6 +50,14 @@ class WindowsSyriusLauncher implements SyriusPlatformLauncher {
 
   @override
   Future<bool> isAnySyriusRunning() async => false;
+
+  @override
+  Future<WalletConnectSummary> walletConnectSummary() async =>
+      WalletConnectSummary.empty;
+
+  @override
+  Future<int> clearWalletConnectData() async =>
+      throw UnsupportedError('Not implemented on Windows yet');
 
   @override
   Future<void> openOfficialReleases() async {}

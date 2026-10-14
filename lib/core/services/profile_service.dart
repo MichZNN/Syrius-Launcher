@@ -238,6 +238,12 @@ class ProfileService {
     await _commit(_settings.copyWith(syriusAppPath: () => path));
   }
 
+  Future<void> setClearWalletConnectOnLaunch(bool value) =>
+      _commit(_settings.copyWith(clearWalletConnectOnLaunch: value));
+
+  Future<void> acknowledgeWalletConnectNotice() =>
+      _commit(_settings.copyWith(walletConnectNoticeAcknowledged: true));
+
   Future<void> setLastLaunch(LastLaunchRecord? record) =>
       _commit(_settings.copyWith(lastLaunch: () => record));
 

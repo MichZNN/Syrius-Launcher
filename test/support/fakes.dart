@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:syrius_launcher/core/models/launch_status.dart';
 import 'package:syrius_launcher/core/models/launcher_settings.dart';
 import 'package:syrius_launcher/core/models/wallet_profile.dart';
+import 'package:syrius_launcher/core/models/walletconnect_summary.dart';
 import 'package:syrius_launcher/core/persistence/profile_repository.dart';
 import 'package:syrius_launcher/core/platform/syrius_platform_launcher.dart';
 import 'package:syrius_launcher/core/services/profile_service.dart';
@@ -126,6 +127,22 @@ class FakePlatformLauncher implements SyriusPlatformLauncher {
 
   @override
   Future<bool> isAnySyriusRunning() async => running.isNotEmpty;
+
+  WalletConnectSummary walletConnect = WalletConnectSummary.empty;
+  int clearCalls = 0;
+  Object? clearError;
+
+  @override
+  Future<WalletConnectSummary> walletConnectSummary() async => walletConnect;
+
+  @override
+  Future<int> clearWalletConnectData() async {
+    if (clearError != null) throw clearError!;
+    clearCalls++;
+    final removed = walletConnect.storageKeys;
+    walletConnect = WalletConnectSummary.empty;
+    return removed;
+  }
 
   @override
   Future<void> openOfficialReleases() async {}
